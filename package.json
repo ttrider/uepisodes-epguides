@@ -1,0 +1,38 @@
+{
+    "name": "uepisodes-epguides",
+    "version": "1.0.0",
+    "description": "TV Episode information sourced from the http://epguides.com/",
+    "main": "lib/index.js",
+    "files": [
+        "lib/**/*"
+    ],
+    "scripts": {
+        "build": "./node_modules/.bin/tsc --watch",
+        "test": "npm test",
+        "prepack": "./node_modules/.bin/tsc -t ES2016 --module commonjs --declaration --outDir ./lib --allowSyntheticDefaultImports ./src/*.ts"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ttrider/uepisodes-epguides.git"
+    },
+    "author": "TTRider",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/ttrider/uepisodes-epguides/issues"
+    },
+    "homepage": "https://github.com/ttrider/uepisodes-epguides#readme",
+    "devDependencies": {
+        "@types/chai": "^4.2.4",
+        "@types/mocha": "^5.2.7",
+        "@types/node": "^12.12.4",
+        "chai": "^4.2.0",
+        "mocha": "^6.2.2",
+        "nyc": "^14.1.1",
+        "proxyquire": "^2.1.3",
+        "sinon": "^7.5.0",
+        "sinon-chai": "^3.3.0",
+        "ts-node": "^8.4.1",
+        "types": "^0.1.1",
+        "typescript": "^3.6.4"
+    }
+}

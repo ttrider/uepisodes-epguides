@@ -4,6 +4,8 @@ import { promisify } from "util";
 import os from "os";
 import http from "http";
 
+const CSV = require("csv-string");
+
 const stat = promisify(fs.stat);
 const writeFile = promisify(fs.writeFile);
 const utimes = promisify(fs.utimes);
@@ -13,6 +15,20 @@ const allShowsUrl = "http://epguides.com/common/allshows.txt";
 const showUrl = "http://epguides.com/common/exportToCSVmaze.asp?maze=";
 const defaultCacheDuration = 3600;
 
+declare type ShowInfo = {
+    title: string,
+    directory: string,
+    tvrage?: number,
+    tvmaze?: number,
+    startDate?: Date,
+    endDate?: Date
+    numberOfEpisodes?: number,
+    runTime?: number,
+    network?: string,
+    country?: string
+}
+
+
 function defaultCacheDir() {
 
     const cacheDir = path.resolve(os.tmpdir(), "uepisodes-epguides");
@@ -21,7 +37,6 @@ function defaultCacheDir() {
     }
     return cacheDir;
 }
-
 
 async function defaultTransport(url: string, lastUpdated?: Date) {
 
@@ -128,11 +143,124 @@ class Client {
 
         return await this.getCachedFile(
             allShowsUrl,
-            (body)=>{
+            (body) => {
 
-                return {};
+                const dataset = CSV.parse(body);
+
+                const header = dataset.shift();
+                if (!header) throw new Error("Invalid showlist data - no header");
+
+                // build factory methods
+                const factoryMethods: Array<(showInfo: ShowInfo, item: string) => ShowInfo> = [];
+
+                for (let index = 0; index < header.length; index++) {
+                    const item = header[index];
+
+                    switch (item) {
+                        case "title":
+                            factoryMethods[index] = (showInfo: ShowInfo, item: string) => {
+                                showInfo.title = item;
+                                return showInfo;
+                            };
+                            break;
+                        case "directory":
+                            factoryMethods[index] = (showInfo: ShowInfo, item: string) => {
+                                showInfo.directory = item;
+                                return showInfo;
+                            };
+                            break;
+
+                        case "tvrage":
+                            factoryMethods[index] = (showInfo: ShowInfo, item: string) => {
+                                if (item) {
+                                    showInfo.tvrage = parseInt(item);
+                                }
+                                return showInfo;
+                            };
+                            break;
+                        case "TVmaze":
+                            factoryMethods[index] = (showInfo: ShowInfo, item: string) => {
+                                if (item) {
+                                    showInfo.tvmaze = parseInt(item);
+                                }
+                                return showInfo;
+                            };
+                            break;
+                        case "start date":
+                            factoryMethods[index] = (showInfo: ShowInfo, item: string) => {
+                                if (item) {
+                                    const datenum = Date.parse(item);
+                                    if (datenum !== NaN) {
+                                        showInfo.startDate = new Date(datenum);
+                                    }
+                                }
+                                return showInfo;
+                            };
+                            break;
+                        case "end date":
+                            factoryMethods[index] = (showInfo: ShowInfo, item: string) => {
+                                if (item) {
+                                    const datenum = Date.parse(item);
+                                    if (!isNaN(datenum)) {
+                                        showInfo.endDate = new Date(datenum);
+                                    }
+                                }
+                                return showInfo;
+                            };
+                            break;
+                        case "number of episodes":
+                            factoryMethods[index] = (showInfo: ShowInfo, item: string) => {
+                                if (item) {
+                                    showInfo.numberOfEpisodes = parseInt(item);
+                                }
+                                return showInfo;
+                            };
+                            break;
+                        case "run time":
+                            factoryMethods[index] = (showInfo: ShowInfo, item: string) => {
+                                if (item) {
+                                    showInfo.runTime = parseInt(item);
+                                }
+                                return showInfo;
+                            };
+                            break;
+                        case "network":
+                            factoryMethods[index] = (showInfo: ShowInfo, item: string) => {
+                                showInfo.network = item;
+                                return showInfo;
+                            };
+                            break;
+                        case "country":
+                            factoryMethods[index] = (showInfo: ShowInfo, item: string) => {
+                                showInfo.country = item;
+                                return showInfo;
+                            };
+                            break;
+                    }
+                }
+
+                const showList = (dataset as [string[]]).map(row => {
+
+                    const showInfo: ShowInfo = {
+                        title: "",
+                        directory: ""
+                    };
+
+                    for (let index = 0; index < row.length; index++) {
+                        const item = row[index];
+
+                        if (factoryMethods[index]) {
+                            factoryMethods[index](showInfo, item);
+                        }
+                    }
+
+                    return showInfo;
+                });
+
+                return {
+                    showList
+                };
             },
-            forceRefresh
         );
     }
 
@@ -151,18 +279,29 @@ class Client {
             const buffer = await readFile(outputFile);
             if (buffer !== undefined) {
                 const text = buffer.toString();
-                const data = JSON.parse(text) as T;
+                const data = JSON.parse(
+                    text,
+                    (key, value) => {
+
+                        if (key.indexOf("Date") !== -1) {
+
+                            return new Date(value);
+                        }
+                        return value;
+
+                    }
+                ) as T;
                 return data;
             }
-            throw new Error("Can't read file " + urlFile);
+            throw new Error("Can't read file " + outputFile);
         }
 
         const data = factory(response.body);
 
-        await writeFile(urlFile, JSON.stringify(data, null, 4));
+        await writeFile(outputFile, JSON.stringify(data, null, 4));
 
         if (response.lastModifiedDate) {
-            await utimes(urlFile, response.lastModifiedDate, response.lastModifiedDate);
+            await utimes(outputFile, response.lastModifiedDate, response.lastModifiedDate);
         }
 
         return data;

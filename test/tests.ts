@@ -1,9 +1,14 @@
 import { expect } from 'chai';
 import { describe } from 'mocha';
+import path from "path";
+import fs from "fs";
+import os from "os";
 
 import client from "../src/index";
+import uuid from 'uuid';
+import { allShowTransport } from '../common/transport';
 
-describe('client', () => {
+describe('init', () => {
 
     it("init_not_undfined", () => {
 
@@ -31,5 +36,52 @@ describe('client', () => {
     });
 
 });
+
+describe('allshows', () => {
+
+    it("simple getShowList", () => {
+
+        const dd = async () => {
+
+            const cacheDir = getCacheDir();
+            console.info(cacheDir);
+
+            const c = client(
+                {
+                    cacheDir,
+                    transport: allShowTransport
+                }
+            );
+
+            // get the dataset and save it to file
+            const data00 = await c.getShowList();
+
+            // expect this data to be loaded from file
+            const data01 = await c.getShowList();
+
+            // expect the dataset
+            const data02 = await c.getShowList(true);
+
+            expect(data00).deep.equal(data01);
+            expect(data00).not.deep.equal(data02);
+            expect(data00).equal(data02);
+        }
+
+        return dd;
+    });
+
+
+
+});
+
+function getCacheDir() {
+
+    const cacheDir = path.resolve(os.tmpdir(), "uepisodes-epguides", uuid());
+    if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir);
+    }
+    return cacheDir;
+}
+
 
 

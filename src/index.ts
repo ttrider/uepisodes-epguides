@@ -12,8 +12,8 @@ const utimes = promisify(fs.utimes);
 const readFile = promisify(fs.readFile);
 
 const allShowsUrl = "http://epguides.com/common/allshows.txt";
-const showUrl = "http://epguides.com/common/exportToCSVmaze.asp?maze=";
-const defaultCacheDuration = 3600;
+const tvMazeShowUrl = "http://epguides.com/common/exportToCSVmaze.asp?maze=";
+
 
 declare type ShowInfo = {
     title: string,
@@ -26,6 +26,15 @@ declare type ShowInfo = {
     runTime?: number,
     network?: string,
     country?: string
+}
+
+declare type EpisodeInfo = {
+    number: number,
+    season: number,
+    episode: number,
+    airDate: Date,
+    title: string,
+    tvmazeUri: string
 }
 
 
@@ -107,6 +116,9 @@ async function defaultTransport(url: string, lastUpdated?: Date) {
                             resolve({ body: buf.join("") });
                         });
                     }
+                    else if (response.statusCode === 404) {
+                        resolve();
+                    }
                     reject(response.statusMessage);
                 });
             request.end();
@@ -116,17 +128,15 @@ async function defaultTransport(url: string, lastUpdated?: Date) {
 
 export default function client(options?: {
     cacheDir?: string,
-    cacheDuration?: number,
     transport?: (url: string, lastUpdated?: Date) => Promise<{ body: string, lastModifiedDate?: Date } | null>
 }) {
 
     if (!options) {
-        return new Client(defaultCacheDir(), defaultCacheDuration, defaultTransport);
+        return new Client(defaultCacheDir(), defaultTransport);
     } else {
 
         return new Client(
             (options.cacheDir === undefined) ? defaultCacheDir() : options.cacheDir,
-            (options.cacheDuration === undefined) ? defaultCacheDuration : options.cacheDuration,
             (options.transport === undefined) ? defaultTransport : options.transport);
     }
 }
@@ -135,13 +145,13 @@ class Client {
 
     constructor(
         public cacheDir: string,
-        public cacheDuration: number,
         public transport: (url: string, lastUpdated?: Date) => Promise<{ body: string, lastModifiedDate?: Date } | null>) {
     }
 
-    public async getShowList(forceRefresh?: boolean) {
+    public async getShows() {
 
-        return await this.getCachedFile(
+        return await getCachedFile(
+            this,
             allShowsUrl,
             (body) => {
 
@@ -264,48 +274,159 @@ class Client {
         );
     }
 
+    public async getShowEpisodes(show: string | { tvmaze?: number }) {
 
-    async getCachedFile<T>(url: string, factory: (body: string) => T, forceRefresh?: boolean) {
+        if (typeof show === "string") {
+            // find show by exact name
 
-        const urlFile = url.replace(/[:\/\\\.\?=]/g, "-") + ".json";
+            const showTitle = show.toLowerCase();
+            const showList = await this.getShows();
 
-        const outputFile = path.resolve(this.cacheDir, urlFile);
-
-        const modifiedTime = forceRefresh ? undefined : await getModifiedTime(outputFile);
-
-        const response = await this.transport(url, modifiedTime);
-
-        if (response === null) {
-            const buffer = await readFile(outputFile);
-            if (buffer !== undefined) {
-                const text = buffer.toString();
-                const data = JSON.parse(
-                    text,
-                    (key, value) => {
-
-                        if (key.indexOf("Date") !== -1) {
-
-                            return new Date(value);
-                        }
-                        return value;
-
-                    }
-                ) as T;
-                return data;
+            const showInfo = showList.showList.find(item => (item.title.toLowerCase() === showTitle));
+            if (!showInfo) {
+                return null;
             }
-            throw new Error("Can't read file " + outputFile);
+            show = showInfo;
         }
 
-        const data = factory(response.body);
-
-        await writeFile(outputFile, JSON.stringify(data, null, 4));
-
-        if (response.lastModifiedDate) {
-            await utimes(outputFile, response.lastModifiedDate, response.lastModifiedDate);
+        if (show.tvmaze === undefined) {
+            return null;
         }
 
-        return data;
+        const response = await this.transport(tvMazeShowUrl + show.tvmaze);
+        if (!response || !response.body) {
+            return null;
+        }
+
+        const csvData = /<pre>(.*?)<\/pre>/gs.exec(response.body);
+        if (!csvData) {
+            return null;
+        }
+
+        const dataset = CSV.parse(csvData[1].trim());
+
+        const header = dataset.shift();
+        if (!header) throw new Error("Invalid showlist data - no header");
+
+        if (header[0]==="no data"){
+            return null;
+        }
+
+        // build factory methods
+        const factoryMethods: Array<(showInfo: EpisodeInfo, item: string) => void> = [];
+
+        for (let index = 0; index < header.length; index++) {
+            const item = header[index];
+
+            switch (item) {
+                case "number":
+                    factoryMethods[index] = (info: EpisodeInfo, item: string) => {
+                        if (item) {
+                            info.number = parseInt(item);
+                        }
+                    };
+                    break;
+                case "season":
+                    factoryMethods[index] = (info: EpisodeInfo, item: string) => {
+                        if (item) {
+                            info.season = parseInt(item);
+                        }
+                    };
+                    break;
+                case "episode":
+                    factoryMethods[index] = (info: EpisodeInfo, item: string) => {
+                        if (item) {
+                            info.episode = parseInt(item);
+                        }
+                    };
+                    break;
+                case "airdate":
+                    factoryMethods[index] = (info: EpisodeInfo, item: string) => {
+                        if (item) {
+                            const datenum = Date.parse(item);
+                            if (datenum !== NaN) {
+                                info.airDate = new Date(datenum);
+                            }
+                        }
+
+                    };
+                    break;
+                case "title":
+                    factoryMethods[index] = (info: EpisodeInfo, item: string) => {
+                        info.title = item;
+                    };
+                    break;
+                case "tvmaze link":
+                    factoryMethods[index] = (info: EpisodeInfo, item: string) => {
+                        info.tvmazeUri = item;
+                    };
+                    break;
+            }
+        }
+
+        const episodes = (dataset as [string[]]).map<EpisodeInfo>(row => {
+
+            const episodeInfo: any = {
+            };
+
+            for (let index = 0; index < row.length; index++) {
+                const item = row[index];
+
+                if (factoryMethods[index]) {
+                    factoryMethods[index](episodeInfo, item);
+                }
+            }
+
+            return episodeInfo;
+        });
+
+        return {
+            episodes
+        };
     }
+
+}
+
+async function getCachedFile<T>(client: Client, url: string, factory: (body: string) => T, forceRefresh?: boolean) {
+
+    const urlFile = url.replace(/[:\/\\\.\?=]/g, "-") + ".json";
+
+    const outputFile = path.resolve(client.cacheDir, urlFile);
+
+    const modifiedTime = forceRefresh ? undefined : await getModifiedTime(outputFile);
+
+    const response = await client.transport(url, modifiedTime);
+
+    if (response === null) {
+        const buffer = await readFile(outputFile);
+        if (buffer !== undefined) {
+            const text = buffer.toString();
+            const data = JSON.parse(
+                text,
+                (key, value) => {
+
+                    if (key.indexOf("Date") !== -1) {
+
+                        return new Date(value);
+                    }
+                    return value;
+
+                }
+            ) as T;
+            return data;
+        }
+        throw new Error("Can't read file " + outputFile);
+    }
+
+    const data = factory(response.body);
+
+    await writeFile(outputFile, JSON.stringify(data, null, 4));
+
+    if (response.lastModifiedDate) {
+        await utimes(outputFile, response.lastModifiedDate, response.lastModifiedDate);
+    }
+
+    return data;
 }
 
 async function getModifiedTime(path: string) {

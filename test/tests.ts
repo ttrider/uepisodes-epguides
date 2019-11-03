@@ -6,8 +6,8 @@ import os from "os";
 
 import client from "../src/index";
 import uuid from 'uuid';
-import { allShowTransport, allShowParsedDate } from '../common/transport';
-import { doesNotReject } from 'assert';
+import { allShowTransport, allShowParsedDate, episodeData } from '../common/transport';
+
 
 describe('init', () => {
 
@@ -16,23 +16,11 @@ describe('init', () => {
         const c = client();
         expect(c).not.equal(undefined);
         expect(c.cacheDir).not.equal(undefined);
-        expect(c.cacheDuration).not.equal(undefined);
         expect(c.transport).not.equal(undefined);
     });
 
     it("init_cacheDir", () => {
         const c = client({ cacheDir: "/somedir/" });
-        expect(c.cacheDir).equal("/somedir/");
-    });
-
-    it("init_cacheDuration", () => {
-        const c = client({ cacheDuration: 10 });
-        expect(c.cacheDuration).equal(10);
-    });
-
-    it("init_cache", () => {
-        const c = client({ cacheDuration: 10, cacheDir: "/somedir/" });
-        expect(c.cacheDuration).equal(10);
         expect(c.cacheDir).equal("/somedir/");
     });
 
@@ -53,20 +41,15 @@ describe('allshows', () => {
         );
 
         // get the dataset and save it to file
-        const data00 = await c.getShowList();
+        const data00 = await c.getShows();
 
         console.info(data00);
 
         // expect this data to be loaded from file
-        const data01 = await c.getShowList();
+        const data01 = await c.getShows();
         console.info(data01);
 
-        // expect the dataset
-        const data02 = await c.getShowList(true);
-
         expect(data00).deep.equal(data01);
-        expect(data00).deep.equal(data02);
-        expect(data00).deep.equal(data02);
     });
 
     it("getShowList:parsing", async () => {
@@ -81,10 +64,61 @@ describe('allshows', () => {
             }
         );
 
-        const data = await c.getShowList();
+        const data = await c.getShows();
 
         expect(data).deep.equal(allShowParsedDate);
 
+    });
+
+    it("getEpisodeList:by id", async () => {
+
+        const cacheDir = getCacheDir();
+        console.info(cacheDir);
+
+        const c = client(
+            {
+                cacheDir,
+                transport: allShowTransport
+            }
+        );
+
+        const data = await c.getShowEpisodes({ tvmaze: 92 });
+
+        expect(data).deep.equal(episodeData)
+    });
+
+    it("getEpisodeList:by name", async () => {
+
+        const cacheDir = getCacheDir();
+        console.info(cacheDir);
+
+        const c = client(
+            {
+                cacheDir,
+                transport: allShowTransport
+            }
+        );
+
+        const data = await c.getShowEpisodes("A to Z");
+
+        expect(data).deep.equal(episodeData)
+    });
+
+    it("getEpisodeList:not found", async () => {
+
+        const cacheDir = getCacheDir();
+        console.info(cacheDir);
+
+        const c = client(
+            {
+                cacheDir,
+                transport: allShowTransport
+            }
+        );
+
+        const data = await c.getShowEpisodes({ tvmaze: -1 });
+
+        expect(data).to.be.null;
     });
 
 

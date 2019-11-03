@@ -31,8 +31,6 @@ describe('allshows', () => {
     it("getShowList:simple ", async () => {
 
         const cacheDir = getCacheDir();
-        console.info(cacheDir);
-
         const c = client(
             {
                 cacheDir,
@@ -43,11 +41,8 @@ describe('allshows', () => {
         // get the dataset and save it to file
         const data00 = await c.getShows();
 
-        console.info(data00);
-
         // expect this data to be loaded from file
         const data01 = await c.getShows();
-        console.info(data01);
 
         expect(data00).deep.equal(data01);
     });
@@ -55,7 +50,6 @@ describe('allshows', () => {
     it("getShowList:parsing", async () => {
 
         const cacheDir = getCacheDir();
-        console.info(cacheDir);
 
         const c = client(
             {
@@ -73,7 +67,6 @@ describe('allshows', () => {
     it("getEpisodeList:by id", async () => {
 
         const cacheDir = getCacheDir();
-        console.info(cacheDir);
 
         const c = client(
             {
@@ -90,7 +83,6 @@ describe('allshows', () => {
     it("getEpisodeList:by name", async () => {
 
         const cacheDir = getCacheDir();
-        console.info(cacheDir);
 
         const c = client(
             {
@@ -107,8 +99,6 @@ describe('allshows', () => {
     it("getEpisodeList:not found", async () => {
 
         const cacheDir = getCacheDir();
-        console.info(cacheDir);
-
         const c = client(
             {
                 cacheDir,

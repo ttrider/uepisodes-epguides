@@ -198,22 +198,18 @@ class Client {
                             break;
                         case "start date":
                             factoryMethods[index] = (showInfo: ShowInfo, item: string) => {
-                                if (item) {
-                                    const datenum = Date.parse(item);
-                                    if (datenum !== NaN) {
-                                        showInfo.startDate = new Date(datenum);
-                                    }
+                                const dt = parseDate(item);
+                                if (dt) {
+                                    showInfo.startDate = dt;
                                 }
                                 return showInfo;
                             };
                             break;
                         case "end date":
                             factoryMethods[index] = (showInfo: ShowInfo, item: string) => {
-                                if (item) {
-                                    const datenum = Date.parse(item);
-                                    if (!isNaN(datenum)) {
-                                        showInfo.endDate = new Date(datenum);
-                                    }
+                                const dt = parseDate(item);
+                                if (dt) {
+                                    showInfo.endDate = dt;
                                 }
                                 return showInfo;
                             };
@@ -308,7 +304,7 @@ class Client {
         const header = dataset.shift();
         if (!header) throw new Error("Invalid showlist data - no header");
 
-        if (header[0]==="no data"){
+        if (header[0] === "no data") {
             return null;
         }
 
@@ -342,13 +338,10 @@ class Client {
                     break;
                 case "airdate":
                     factoryMethods[index] = (info: EpisodeInfo, item: string) => {
-                        if (item) {
-                            const datenum = Date.parse(item);
-                            if (datenum !== NaN) {
-                                info.airDate = new Date(datenum);
-                            }
+                        const dt = parseDate(item);
+                        if (dt) {
+                            info.airDate = dt;
                         }
-
                     };
                     break;
                 case "title":
@@ -385,6 +378,17 @@ class Client {
         };
     }
 
+}
+
+function parseDate(item: string) {
+    if (item) {
+        const datenum = Date.parse(item);
+        if (datenum !== NaN) {
+            const dt = new Date(datenum);
+            dt.setHours(0);
+            return dt;
+        }
+    }
 }
 
 async function getCachedFile<T>(client: Client, url: string, factory: (body: string) => T, forceRefresh?: boolean) {

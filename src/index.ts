@@ -385,7 +385,7 @@ function parseDate(item: string) {
         const datenum = Date.parse(item);
         if (!isNaN(datenum)) {
             const dt = new Date(datenum);
-            return new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), 1));
+            return new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), 1));
         }
     }
 }

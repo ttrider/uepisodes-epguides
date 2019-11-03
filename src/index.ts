@@ -383,10 +383,9 @@ class Client {
 function parseDate(item: string) {
     if (item) {
         const datenum = Date.parse(item);
-        if (datenum !== NaN) {
+        if (!isNaN(datenum)) {
             const dt = new Date(datenum);
-            dt.setHours(0);
-            return dt;
+            return new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), 1));
         }
     }
 }

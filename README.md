@@ -6,7 +6,7 @@ Returns information about TV shows from the http://epguides.com website
 # Installation
 
 ```
-$ npm install csv-string
+$ npm install uepisodes-epguides
 ```
 # Usage
 

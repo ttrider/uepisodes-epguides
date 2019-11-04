@@ -114,6 +114,26 @@ describe('allshows', () => {
 
 });
 
+// describe('integrated', () => {
+
+//     it("getShowList ", async () => {
+
+//         const c = client();
+
+//         const show = await c.getShowEpisodes("Absentia");
+
+//         if (show !== null) {
+//             for (let index = 0; index < show.episodes.length; index++) {
+//                 const episode = show.episodes[index];
+
+//                 console.log(episode);
+
+//             }
+//         }
+
+//     });
+// });
+
 function getCacheDir() {
 
     const cacheDir = path.resolve(os.tmpdir(), "uepisodes-epguides", uuid());

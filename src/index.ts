@@ -55,7 +55,8 @@ async function defaultTransport(url: string, lastUpdated?: Date) {
         }
     }
 
-    return await get();
+    const response = await get();
+    return response;
 
     async function head() {
         if (lastUpdated === undefined) return true;
@@ -82,7 +83,7 @@ async function defaultTransport(url: string, lastUpdated?: Date) {
     }
 
     async function get() {
-        if (lastUpdated === undefined) return null;
+        // if (lastUpdated === undefined) return null;
 
         const options = new URL(url) as http.RequestOptions;
         options.method = "GET";
@@ -119,7 +120,9 @@ async function defaultTransport(url: string, lastUpdated?: Date) {
                     else if (response.statusCode === 404) {
                         resolve();
                     }
-                    reject(response.statusMessage);
+                    else {
+                        reject(response.statusMessage);
+                    }
                 });
             request.end();
         });
